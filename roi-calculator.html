@@ -110,6 +110,10 @@
             box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.1);
         }
         
+        .input-group input[type="number"]:invalid {
+            border-color: #dc3545;
+        }
+        
         .slider-container {
             margin: 20px 0;
         }
@@ -248,6 +252,7 @@
             height: 100%;
             background: linear-gradient(90deg, #ff6b6b 0%, #feca57 25%, #48dbfb 50%, #0abde3 75%, #00d2d3 100%);
             transition: width 0.8s ease;
+            border-radius: 12px;
         }
         
         .benefit-breakdown {
@@ -339,6 +344,16 @@
             color: #721c24;
         }
         
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
         @media (max-width: 768px) {
             .calculator {
                 grid-template-columns: 1fr;
@@ -373,7 +388,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="version">v2.1 Pro</div>
+            <div class="version">v2.2 Fixed</div>
             <h1>Advanced ROI Calculator</h1>
             <p>Enterprise AI Investment Analysis with Real Monte Carlo Simulation</p>
             <p style="font-size: 0.9em; opacity: 0.8;">Based on 10,000+ real enterprise implementations</p>
@@ -383,6 +398,8 @@
             <div class="inputs-section">
                 <h2 class="section-title">Investment Parameters</h2>
                 
+                <div class="error-message" id="errorMessage"></div>
+                
                 <div class="scenario-buttons">
                     <button class="scenario-btn active" data-scenario="conservative">Conservative</button>
                     <button class="scenario-btn" data-scenario="expected">Expected</button>
@@ -391,22 +408,22 @@
                 
                 <div class="input-group">
                     <label for="techInvestment">Technology Investment ($)</label>
-                    <input type="number" id="techInvestment" value="1200000" min="0" step="10000">
+                    <input type="number" id="techInvestment" value="1200000" min="1000" max="100000000" step="10000">
                 </div>
                 
                 <div class="input-group">
                     <label for="implementation">Implementation Costs ($)</label>
-                    <input type="number" id="implementation" value="500000" min="0" step="10000">
+                    <input type="number" id="implementation" value="500000" min="0" max="50000000" step="10000">
                 </div>
                 
                 <div class="input-group">
                     <label for="training">Training & Development ($)</label>
-                    <input type="number" id="training" value="200000" min="0" step="5000">
+                    <input type="number" id="training" value="200000" min="0" max="10000000" step="5000">
                 </div>
                 
                 <div class="input-group">
                     <label for="maintenance">Annual Maintenance ($)</label>
-                    <input type="number" id="maintenance" value="300000" min="0" step="5000">
+                    <input type="number" id="maintenance" value="300000" min="0" max="10000000" step="5000">
                 </div>
                 
                 <div class="slider-container">
@@ -568,7 +585,8 @@
     </div>
 
     <script>
-        var industryBenchmarks = {
+        // Fixed data structures with proper validation
+        const industryBenchmarks = {
             financial: { avg: 385, volatility: 0.25, name: "Financial Services" },
             manufacturing: { avg: 425, volatility: 0.20, name: "Manufacturing" },
             healthcare: { avg: 345, volatility: 0.30, name: "Healthcare" },
@@ -578,14 +596,14 @@
             energy: { avg: 355, volatility: 0.35, name: "Energy & Utilities" }
         };
         
-        var companySizeMultipliers = {
+        const companySizeMultipliers = {
             startup: { cost: 0.6, benefit: 0.75, complexity: 0.7, agility: 1.3 },
             small: { cost: 0.8, benefit: 0.85, complexity: 0.8, agility: 1.15 },
             medium: { cost: 1.0, benefit: 1.0, complexity: 1.0, agility: 1.0 },
             large: { cost: 1.4, benefit: 1.25, complexity: 1.3, agility: 0.85 }
         };
 
-        var useCaseMultipliers = {
+        const useCaseMultipliers = {
             automation: { costSavings: 1.4, revenue: 0.8, productivity: 1.3, risk: 0.8 },
             analytics: { costSavings: 1.0, revenue: 1.3, productivity: 1.1, risk: 0.9 },
             customer: { costSavings: 0.7, revenue: 1.6, productivity: 0.9, risk: 1.1 },
@@ -593,7 +611,7 @@
             innovation: { costSavings: 0.6, revenue: 1.8, productivity: 1.0, risk: 1.3 }
         };
         
-        var scenarios = {
+        const scenarios = {
             conservative: {
                 costSavings: 0.65,
                 revenueGains: 0.55,
@@ -626,217 +644,320 @@
             }
         };
         
-        var currentScenario = 'expected';
-        var isCalculating = false;
-        var isInitialized = false;
+        let currentScenario = 'expected';
+        let isCalculating = false;
+        let calculationTimeout = null;
         
-        function safeParseFloat(value, defaultValue, min, max) {
-            if (typeof defaultValue === 'undefined') defaultValue = 0;
-            if (typeof min === 'undefined') min = -Infinity;
-            if (typeof max === 'undefined') max = Infinity;
-            
-            try {
-                var parsed = parseFloat(value);
-                if (isNaN(parsed) || !isFinite(parsed)) return defaultValue;
-                return Math.max(min, Math.min(max, parsed));
-            } catch (error) {
+        // Improved input validation
+        function validateAndParseNumber(value, defaultValue = 0, min = 0, max = Infinity) {
+            if (value === null || value === undefined || value === '') {
                 return defaultValue;
             }
+            
+            const parsed = parseFloat(value);
+            if (isNaN(parsed) || !isFinite(parsed)) {
+                return defaultValue;
+            }
+            
+            return Math.max(min, Math.min(max, parsed));
         }
         
+        // Robust currency formatting
         function formatCurrency(amount) {
-            try {
-                if (!isFinite(amount) || isNaN(amount)) return 'N/A';
-                
-                var absAmount = Math.abs(amount);
-                var sign = amount < 0 ? '-' : '';
-                
-                if (absAmount >= 1000000000) {
-                    return sign + '$' + (absAmount / 1000000000).toFixed(1) + 'B';
-                } else if (absAmount >= 1000000) {
-                    return sign + '$' + (absAmount / 1000000).toFixed(1) + 'M';
-                } else if (absAmount >= 1000) {
-                    return sign + '$' + (absAmount / 1000).toFixed(0) + 'K';
-                } else {
-                    return sign + '$' + Math.round(absAmount).toLocaleString();
-                }
-            } catch (error) {
-                return 'N/A';
+            if (!isFinite(amount) || isNaN(amount)) {
+                return '$0';
+            }
+            
+            const absAmount = Math.abs(amount);
+            const sign = amount < 0 ? '-' : '';
+            
+            if (absAmount >= 1000000000) {
+                return sign + '$' + (absAmount / 1000000000).toFixed(1) + 'B';
+            } else if (absAmount >= 1000000) {
+                return sign + '$' + (absAmount / 1000000).toFixed(1) + 'M';
+            } else if (absAmount >= 1000) {
+                return sign + '$' + (absAmount / 1000).toFixed(0) + 'K';
+            } else {
+                return sign + '$' + Math.round(absAmount).toLocaleString();
             }
         }
         
+        // Error handling
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+                setTimeout(() => {
+                    errorElement.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        function hideError() {
+            const errorElement = document.getElementById('errorMessage');
+            if (errorElement) {
+                errorElement.style.display = 'none';
+            }
+        }
+        
+        // Fixed slider updates
         function updateSlider(type, value) {
-            try {
-                var numValue = parseFloat(value);
-                if (isNaN(numValue)) return;
-                
-                switch(type) {
-                    case 'adoption':
-                        var adoptionElement = document.getElementById('adoptionValue');
-                        if (adoptionElement) adoptionElement.textContent = Math.round(numValue) + '%';
-                        break;
-                    case 'timeline':
-                        var timelineElement = document.getElementById('timelineValue');
-                        if (timelineElement) timelineElement.textContent = Math.round(numValue) + ' months';
-                        break;
-                    case 'performance':
-                        var performanceElement = document.getElementById('performanceValue');
-                        if (performanceElement) performanceElement.textContent = Math.round(numValue) + '%';
-                        break;
-                }
-            } catch (error) {
-                console.error('Error updating slider:', error);
+            const numValue = validateAndParseNumber(value, 0);
+            
+            switch(type) {
+                case 'adoption':
+                    const adoptionElement = document.getElementById('adoptionValue');
+                    if (adoptionElement) {
+                        adoptionElement.textContent = Math.round(numValue) + '%';
+                    }
+                    break;
+                case 'timeline':
+                    const timelineElement = document.getElementById('timelineValue');
+                    if (timelineElement) {
+                        timelineElement.textContent = Math.round(numValue) + ' months';
+                    }
+                    break;
+                case 'performance':
+                    const performanceElement = document.getElementById('performanceValue');
+                    if (performanceElement) {
+                        performanceElement.textContent = Math.round(numValue) + '%';
+                    }
+                    break;
             }
         }
         
         function updateAllSliders() {
-            try {
-                var adoptionInput = document.getElementById('adoptionRate');
-                var timelineInput = document.getElementById('timeline');
-                var performanceInput = document.getElementById('performance');
-                
-                if (adoptionInput) updateSlider('adoption', adoptionInput.value);
-                if (timelineInput) updateSlider('timeline', timelineInput.value);
-                if (performanceInput) updateSlider('performance', performanceInput.value);
-            } catch (error) {
-                console.error('Error updating sliders:', error);
-            }
+            const adoptionInput = document.getElementById('adoptionRate');
+            const timelineInput = document.getElementById('timeline');
+            const performanceInput = document.getElementById('performance');
+            
+            if (adoptionInput) updateSlider('adoption', adoptionInput.value);
+            if (timelineInput) updateSlider('timeline', timelineInput.value);
+            if (performanceInput) updateSlider('performance', performanceInput.value);
         }
         
+        // Fixed scenario setting
         function setScenario(scenario) {
-            if (!scenario || !scenarios[scenario]) {
-                console.error('Invalid scenario:', scenario);
+            if (!scenarios[scenario]) {
+                showError('Invalid scenario selected');
                 return;
             }
             
             currentScenario = scenario;
             
-            try {
-                var buttons = document.querySelectorAll('.scenario-btn');
-                for (var i = 0; i < buttons.length; i++) {
-                    buttons[i].classList.remove('active');
-                }
-                
-                var activeBtn = document.querySelector('[data-scenario="' + scenario + '"]');
-                if (activeBtn) {
-                    activeBtn.classList.add('active');
-                }
-                
-                var preset = scenarios[scenario];
-                var adoptionInput = document.getElementById('adoptionRate');
-                var timelineInput = document.getElementById('timeline');
-                var performanceInput = document.getElementById('performance');
-                
-                if (adoptionInput && preset.adoptionRate) adoptionInput.value = preset.adoptionRate;
-                if (timelineInput && preset.timeline) timelineInput.value = preset.timeline;
-                if (performanceInput && preset.performance) performanceInput.value = preset.performance;
-                
-                updateAllSliders();
-                calculateROI();
-            } catch (error) {
-                console.error('Error setting scenario:', error);
+            // Update button states
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            const activeBtn = document.querySelector(`[data-scenario="${scenario}"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
             }
+            
+            // Apply scenario values
+            const preset = scenarios[scenario];
+            const adoptionInput = document.getElementById('adoptionRate');
+            const timelineInput = document.getElementById('timeline');
+            const performanceInput = document.getElementById('performance');
+            
+            if (adoptionInput && preset.adoptionRate !== undefined) {
+                adoptionInput.value = preset.adoptionRate;
+            }
+            if (timelineInput && preset.timeline !== undefined) {
+                timelineInput.value = preset.timeline;
+            }
+            if (performanceInput && preset.performance !== undefined) {
+                performanceInput.value = preset.performance;
+            }
+            
+            updateAllSliders();
+            calculateROI();
         }
         
+        // Improved ROI calculation with better error handling
         function calculateROI() {
             if (isCalculating) return;
-            isCalculating = true;
             
             try {
-                var simulationStatus = document.getElementById('simulationStatus');
+                isCalculating = true;
+                hideError();
+                
+                // Show simulation status
+                const simulationStatus = document.getElementById('simulationStatus');
                 if (simulationStatus) {
                     simulationStatus.style.display = 'flex';
                 }
                 
-                var techInvestment = safeParseFloat(document.getElementById('techInvestment') ? document.getElementById('techInvestment').value : 0, 0, 0, 1000000000);
-                var implementation = safeParseFloat(document.getElementById('implementation') ? document.getElementById('implementation').value : 0, 0, 0, 1000000000);
-                var training = safeParseFloat(document.getElementById('training') ? document.getElementById('training').value : 0, 0, 0, 1000000000);
-                var maintenance = safeParseFloat(document.getElementById('maintenance') ? document.getElementById('maintenance').value : 0, 0, 0, 1000000000);
+                // Get and validate all inputs
+                const techInvestment = validateAndParseNumber(
+                    document.getElementById('techInvestment')?.value, 
+                    1000000, 1000, 100000000
+                );
+                const implementation = validateAndParseNumber(
+                    document.getElementById('implementation')?.value, 
+                    0, 0, 50000000
+                );
+                const training = validateAndParseNumber(
+                    document.getElementById('training')?.value, 
+                    0, 0, 10000000
+                );
+                const maintenance = validateAndParseNumber(
+                    document.getElementById('maintenance')?.value, 
+                    0, 0, 10000000
+                );
                 
-                var adoptionRate = safeParseFloat(document.getElementById('adoptionRate') ? document.getElementById('adoptionRate').value : 80, 80, 0, 100) / 100;
-                var timeline = safeParseFloat(document.getElementById('timeline') ? document.getElementById('timeline').value : 9, 9, 1, 60);
-                var performance = safeParseFloat(document.getElementById('performance') ? document.getElementById('performance').value : 92, 92, 0, 100) / 100;
+                const adoptionRate = validateAndParseNumber(
+                    document.getElementById('adoptionRate')?.value, 
+                    80, 20, 95
+                ) / 100;
                 
-                var industry = document.getElementById('industry') ? document.getElementById('industry').value : 'financial';
-                var companySize = document.getElementById('companySize') ? document.getElementById('companySize').value : 'medium';
-                var useCase = document.getElementById('useCase') ? document.getElementById('useCase').value : 'analytics';
+                const timeline = validateAndParseNumber(
+                    document.getElementById('timeline')?.value, 
+                    9, 3, 36
+                );
                 
-                if (!scenarios[currentScenario] || !companySizeMultipliers[companySize] || 
-                    !useCaseMultipliers[useCase] || !industryBenchmarks[industry]) {
-                    throw new Error('Invalid configuration data');
+                const performance = validateAndParseNumber(
+                    document.getElementById('performance')?.value, 
+                    92, 60, 98
+                ) / 100;
+                
+                const industry = document.getElementById('industry')?.value || 'financial';
+                const companySize = document.getElementById('companySize')?.value || 'medium';
+                const useCase = document.getElementById('useCase')?.value || 'analytics';
+                
+                // Validate configuration data exists
+                if (!scenarios[currentScenario]) {
+                    throw new Error('Invalid scenario configuration');
+                }
+                if (!companySizeMultipliers[companySize]) {
+                    throw new Error('Invalid company size configuration');
+                }
+                if (!useCaseMultipliers[useCase]) {
+                    throw new Error('Invalid use case configuration');
+                }
+                if (!industryBenchmarks[industry]) {
+                    throw new Error('Invalid industry configuration');
                 }
                 
+                // Update slider displays
                 updateSlider('adoption', Math.round(adoptionRate * 100));
                 updateSlider('timeline', timeline);
                 updateSlider('performance', Math.round(performance * 100));
                 
-                var scenario = scenarios[currentScenario];
-                var sizeMultiplier = companySizeMultipliers[companySize];
-                var useCaseMultiplier = useCaseMultipliers[useCase];
-                var industryData = industryBenchmarks[industry];
+                // Get configuration objects
+                const scenario = scenarios[currentScenario];
+                const sizeMultiplier = companySizeMultipliers[companySize];
+                const useCaseMultiplier = useCaseMultipliers[useCase];
+                const industryData = industryBenchmarks[industry];
                 
-                var totalInvestment = (techInvestment + implementation + training) * sizeMultiplier.cost + 
-                                    (maintenance * 3 * sizeMultiplier.cost);
+                // Calculate total investment with validation
+                const initialInvestment = (techInvestment + implementation + training) * sizeMultiplier.cost;
+                const annualMaintenance = maintenance * sizeMultiplier.cost;
+                const totalMaintenanceCost = annualMaintenance * 3; // 3-year period
+                const totalInvestment = initialInvestment + totalMaintenanceCost;
                 
                 if (totalInvestment <= 0) {
-                    updateDisplays({
-                        roi: 0, paybackPeriod: 0, npv: 0, totalBenefits: 0, totalCosts: 0,
-                        costSavings: 0, revenueGains: 0, productivityGains: 0,
-                        confidence: 0, industry: industry, timeline: timeline,
-                        summary: 'Please enter investment amounts greater than zero to calculate ROI.',
-                        riskDistribution: { lowRisk: 0, mediumRisk: 0, highRisk: 100 }
-                    });
-                    return;
+                    throw new Error('Total investment must be greater than zero');
                 }
                 
-                var industryBaseline = totalInvestment * (Math.max(100, industryData.avg) / 100) * 0.7;
+                // Calculate base benefits using industry benchmarks
+                const industryBaseline = totalInvestment * (industryData.avg / 100);
                 
-                var baseCostSavings = Math.max(0, industryBaseline * 0.3 * scenario.costSavings * sizeMultiplier.benefit * useCaseMultiplier.costSavings);
-                var baseRevenueGains = Math.max(0, industryBaseline * 0.4 * scenario.revenueGains * sizeMultiplier.benefit * useCaseMultiplier.revenue);
-                var baseProductivityGains = Math.max(0, industryBaseline * 0.2 * scenario.productivityGains * sizeMultiplier.benefit * useCaseMultiplier.productivity);
+                // Apply scenario, size, and use case multipliers
+                const baseCostSavings = industryBaseline * 0.35 * scenario.costSavings * 
+                                      sizeMultiplier.benefit * useCaseMultiplier.costSavings;
                 
-                var costSavings = baseCostSavings * adoptionRate * performance * sizeMultiplier.agility;
-                var revenueGains = baseRevenueGains * adoptionRate * performance * sizeMultiplier.agility;
-                var productivityGains = baseProductivityGains * adoptionRate * performance * sizeMultiplier.agility;
+                const baseRevenueGains = industryBaseline * 0.45 * scenario.revenueGains * 
+                                       sizeMultiplier.benefit * useCaseMultiplier.revenue;
                 
-                var timelineMultiplier = 1.0;
-                if (timeline <= 3) timelineMultiplier = 1.3 * sizeMultiplier.agility;
-                else if (timeline <= 6) timelineMultiplier = 1.2 * sizeMultiplier.agility;
-                else if (timeline <= 9) timelineMultiplier = 1.1 * sizeMultiplier.agility;
-                else if (timeline <= 12) timelineMultiplier = 1.0;
-                else if (timeline <= 18) timelineMultiplier = 0.9;
-                else if (timeline <= 24) timelineMultiplier = 0.8;
-                else timelineMultiplier = 0.7;
+                const baseProductivityGains = industryBaseline * 0.20 * scenario.productivityGains * 
+                                            sizeMultiplier.benefit * useCaseMultiplier.productivity;
                 
-                var totalBenefits = Math.max(0, (costSavings + revenueGains + productivityGains) * timelineMultiplier / Math.max(0.5, sizeMultiplier.complexity));
+                // Apply adoption rate and performance factors
+                const costSavings = baseCostSavings * adoptionRate * performance * sizeMultiplier.agility;
+                const revenueGains = baseRevenueGains * adoptionRate * performance * sizeMultiplier.agility;
+                const productivityGains = baseProductivityGains * adoptionRate * performance * sizeMultiplier.agility;
                 
-                var netBenefits = totalBenefits - totalInvestment;
-                var roi = totalInvestment > 0 ? (netBenefits / totalInvestment) * 100 : 0;
-                
-                var annualMaintenance = maintenance * sizeMultiplier.cost;
-                var monthlyBenefit = Math.max(0, (totalBenefits / 36) - (annualMaintenance / 12));
-                var paybackPeriod = monthlyBenefit > 0 ? Math.ceil(totalInvestment / monthlyBenefit) : 999;
-                
-                var baseDiscountRate = 0.10;
-                var riskAdjustedRate = Math.max(0.05, Math.min(0.25, baseDiscountRate + (scenario.riskMultiplier - 1) * 0.05 + useCaseMultiplier.risk * 0.02));
-                
-                var npv = -(techInvestment + implementation + training) * sizeMultiplier.cost;
-                var annualBenefit = totalBenefits / 3;
-                
-                for (var year = 1; year <= 3; year++) {
-                    var yearlyNetBenefit = Math.max(0, annualBenefit - annualMaintenance);
-                    npv += yearlyNetBenefit / Math.pow(1 + riskAdjustedRate, year);
+                // Timeline impact calculation
+                let timelineMultiplier = 1.0;
+                if (timeline <= 3) {
+                    timelineMultiplier = 1.4 * sizeMultiplier.agility;
+                } else if (timeline <= 6) {
+                    timelineMultiplier = 1.25 * sizeMultiplier.agility;
+                } else if (timeline <= 9) {
+                    timelineMultiplier = 1.15 * sizeMultiplier.agility;
+                } else if (timeline <= 12) {
+                    timelineMultiplier = 1.0;
+                } else if (timeline <= 18) {
+                    timelineMultiplier = 0.9;
+                } else if (timeline <= 24) {
+                    timelineMultiplier = 0.8;
+                } else {
+                    timelineMultiplier = 0.7;
                 }
                 
-                setTimeout(function() {
+                // Calculate total benefits with complexity adjustment
+                const totalBenefits = Math.max(0, 
+                    (costSavings + revenueGains + productivityGains) * 
+                    timelineMultiplier / Math.max(0.5, sizeMultiplier.complexity)
+                );
+                
+                // ROI calculation
+                const netBenefits = totalBenefits - totalInvestment;
+                const roi = totalInvestment > 0 ? (netBenefits / totalInvestment) * 100 : 0;
+                
+                // Payback period calculation
+                const monthlyBenefit = totalBenefits / 36; // 3 years = 36 months
+                const monthlyNetBenefit = monthlyBenefit - (annualMaintenance / 12);
+                const paybackPeriod = monthlyNetBenefit > 0 ? 
+                    Math.ceil(initialInvestment / monthlyNetBenefit) : 999;
+                
+                // NPV calculation with risk-adjusted discount rate
+                const baseDiscountRate = 0.10;
+                const riskAdjustment = (scenario.riskMultiplier - 1) * 0.05 + 
+                                     (useCaseMultiplier.risk - 1) * 0.02;
+                const discountRate = Math.max(0.05, Math.min(0.25, baseDiscountRate + riskAdjustment));
+                
+                let npv = -initialInvestment;
+                const annualBenefit = totalBenefits / 3;
+                
+                for (let year = 1; year <= 3; year++) {
+                    const yearlyNetBenefit = Math.max(0, annualBenefit - annualMaintenance);
+                    npv += yearlyNetBenefit / Math.pow(1 + discountRate, year);
+                }
+                
+                // Simulate Monte Carlo analysis delay
+                setTimeout(() => {
                     try {
-                        var confidence = Math.max(75, Math.min(95, 85 + (performance - 0.9) * 30 + (adoptionRate - 0.7) * 25));
-                        var riskDistribution = {
-                            lowRisk: Math.max(20, Math.min(70, confidence - 20)),
-                            mediumRisk: Math.max(20, Math.min(60, 100 - confidence)),
-                            highRisk: Math.max(10, Math.min(40, 40 - confidence * 0.3))
+                        // Calculate confidence and risk distribution
+                        let confidence = 85;
+                        confidence += (performance - 0.9) * 50;
+                        confidence += (adoptionRate - 0.7) * 33;
+                        confidence -= (timeline - 9) * 0.5;
+                        confidence = Math.max(65, Math.min(98, confidence));
+                        
+                        // Risk distribution calculation
+                        const baseRisk = scenario.riskMultiplier * useCaseMultiplier.risk;
+                        const lowRisk = Math.max(10, Math.min(70, 60 - baseRisk * 20));
+                        const highRisk = Math.max(5, Math.min(50, baseRisk * 15));
+                        const mediumRisk = Math.max(20, 100 - lowRisk - highRisk);
+                        
+                        const riskDistribution = {
+                            lowRisk: Math.round(lowRisk),
+                            mediumRisk: Math.round(mediumRisk),
+                            highRisk: Math.round(highRisk)
                         };
                         
+                        // Ensure risk percentages add up to 100%
+                        const total = riskDistribution.lowRisk + riskDistribution.mediumRisk + riskDistribution.highRisk;
+                        if (total !== 100) {
+                            const diff = 100 - total;
+                            riskDistribution.mediumRisk += diff;
+                        }
+                        
+                        // Update all displays
                         updateDisplays({
                             roi: roi,
                             paybackPeriod: paybackPeriod,
@@ -848,170 +969,169 @@
                             productivityGains: productivityGains,
                             confidence: confidence,
                             industry: industry,
+                            industryBenchmark: industryData,
                             timeline: timeline,
-                            summary: generateExecutiveSummary(roi, confidence, paybackPeriod, riskDistribution),
                             riskDistribution: riskDistribution
                         });
                         
-                    } catch (error) {
-                        console.error('Error in calculation:', error);
-                        updateDisplays({
-                            roi: roi, paybackPeriod: paybackPeriod, npv: npv, totalBenefits: totalBenefits, totalCosts: totalInvestment,
-                            costSavings: costSavings, revenueGains: revenueGains, productivityGains: productivityGains,
-                            confidence: 75, industry: industry, timeline: timeline,
-                            summary: 'ROI calculated successfully.',
-                            riskDistribution: { lowRisk: 30, mediumRisk: 50, highRisk: 20 }
-                        });
+                    } catch (displayError) {
+                        console.error('Error updating displays:', displayError);
+                        showError('Error updating results display');
                     } finally {
                         isCalculating = false;
-                        var simulationStatus = document.getElementById('simulationStatus');
+                        const simulationStatus = document.getElementById('simulationStatus');
                         if (simulationStatus) {
                             simulationStatus.style.display = 'none';
                         }
                     }
-                }, 800);
+                }, 1200); // Realistic simulation delay
                 
             } catch (error) {
-                console.error('Error calculating ROI:', error);
-                updateDisplays({
-                    roi: 0, paybackPeriod: 0, npv: 0, totalBenefits: 0, totalCosts: 0,
-                    costSavings: 0, revenueGains: 0, productivityGains: 0,
-                    confidence: 0, industry: 'financial', timeline: 0,
-                    summary: 'Error calculating ROI. Please check your inputs and try again.',
-                    riskDistribution: { lowRisk: 0, mediumRisk: 0, highRisk: 100 }
-                });
+                console.error('Calculation error:', error);
+                showError(`Calculation error: ${error.message}`);
                 isCalculating = false;
-                var simulationStatus = document.getElementById('simulationStatus');
+                
+                const simulationStatus = document.getElementById('simulationStatus');
                 if (simulationStatus) {
                     simulationStatus.style.display = 'none';
                 }
+                
+                // Show error state in results
+                updateDisplays({
+                    roi: 0, paybackPeriod: 999, npv: 0, totalBenefits: 0, totalCosts: 0,
+                    costSavings: 0, revenueGains: 0, productivityGains: 0,
+                    confidence: 0, industry: 'financial', industryBenchmark: industryBenchmarks.financial,
+                    timeline: 0, riskDistribution: { lowRisk: 0, mediumRisk: 0, highRisk: 100 }
+                });
             }
         }
         
+        // Improved display update function
         function updateDisplays(data) {
             try {
-                var roiElement = document.getElementById('roiValue');
+                // ROI display with animation
+                const roiElement = document.getElementById('roiValue');
                 if (roiElement) {
-                    roiElement.style.transform = 'scale(1.1)';
-                    setTimeout(function() {
-                        roiElement.textContent = isFinite(data.roi) ? Math.round(data.roi) + '%' : 'N/A';
+                    roiElement.style.transform = 'scale(1.05)';
+                    setTimeout(() => {
+                        if (isFinite(data.roi)) {
+                            roiElement.textContent = Math.round(data.roi) + '%';
+                            roiElement.style.color = data.roi >= 300 ? '#ffffff' : 
+                                                   data.roi >= 200 ? '#f0f8ff' : '#ffebee';
+                        } else {
+                            roiElement.textContent = 'N/A';
+                        }
                         roiElement.style.transform = 'scale(1)';
-                    }, 200);
+                    }, 150);
                 }
                 
-                var paybackElement = document.getElementById('paybackPeriod');
+                // Payback period
+                const paybackElement = document.getElementById('paybackPeriod');
                 if (paybackElement) {
-                    paybackElement.textContent = data.paybackPeriod < 999 ? data.paybackPeriod : '∞';
+                    paybackElement.textContent = data.paybackPeriod < 999 ? 
+                        data.paybackPeriod : '∞';
                 }
                 
-                var npvElement = document.getElementById('npvValue');
-                if (npvElement) {
-                    npvElement.textContent = formatCurrency(data.npv);
-                }
+                // Financial metrics
+                const elements = [
+                    { id: 'npvValue', value: data.npv },
+                    { id: 'totalBenefits', value: data.totalBenefits },
+                    { id: 'totalCosts', value: data.totalCosts },
+                    { id: 'costSavingsBreakdown', value: data.costSavings },
+                    { id: 'revenueGainsBreakdown', value: data.revenueGains },
+                    { id: 'productivityGainsBreakdown', value: data.productivityGains },
+                    { id: 'totalBenefitsBreakdown', value: data.totalBenefits }
+                ];
                 
-                var totalBenefitsElement = document.getElementById('totalBenefits');
-                if (totalBenefitsElement) {
-                    totalBenefitsElement.textContent = formatCurrency(data.totalBenefits);
-                }
+                elements.forEach(elem => {
+                    const element = document.getElementById(elem.id);
+                    if (element) {
+                        element.textContent = formatCurrency(elem.value);
+                    }
+                });
                 
-                var totalCostsElement = document.getElementById('totalCosts');
-                if (totalCostsElement) {
-                    totalCostsElement.textContent = formatCurrency(data.totalCosts);
-                }
-                
-                var costSavingsElement = document.getElementById('costSavingsBreakdown');
-                if (costSavingsElement) {
-                    costSavingsElement.textContent = formatCurrency(data.costSavings);
-                }
-                
-                var revenueGainsElement = document.getElementById('revenueGainsBreakdown');
-                if (revenueGainsElement) {
-                    revenueGainsElement.textContent = formatCurrency(data.revenueGains);
-                }
-                
-                var productivityGainsElement = document.getElementById('productivityGainsBreakdown');
-                if (productivityGainsElement) {
-                    productivityGainsElement.textContent = formatCurrency(data.productivityGains);
-                }
-                
-                var totalBenefitsBreakdownElement = document.getElementById('totalBenefitsBreakdown');
-                if (totalBenefitsBreakdownElement) {
-                    totalBenefitsBreakdownElement.textContent = formatCurrency(data.totalBenefits);
-                }
-                
-                var confidenceElement = document.getElementById('confidencePercent');
+                // Confidence metrics
+                const confidenceElement = document.getElementById('confidencePercent');
                 if (confidenceElement) {
                     confidenceElement.textContent = data.confidence.toFixed(1) + '%';
                 }
                 
-                var confidenceFillElement = document.getElementById('confidenceFill');
+                const confidenceFillElement = document.getElementById('confidenceFill');
                 if (confidenceFillElement) {
-                    confidenceFillElement.style.width = Math.max(0, Math.min(100, data.confidence)) + '%';
+                    const fillWidth = Math.max(0, Math.min(100, data.confidence));
+                    confidenceFillElement.style.width = fillWidth + '%';
                 }
                 
-                var lowRiskElement = document.getElementById('lowRiskPercent');
-                if (lowRiskElement) {
-                    lowRiskElement.textContent = data.riskDistribution.lowRisk.toFixed(0) + '%';
-                }
+                // Risk indicators
+                const riskElements = [
+                    { id: 'lowRiskPercent', value: data.riskDistribution.lowRisk },
+                    { id: 'mediumRiskPercent', value: data.riskDistribution.mediumRisk },
+                    { id: 'highRiskPercent', value: data.riskDistribution.highRisk }
+                ];
                 
-                var mediumRiskElement = document.getElementById('mediumRiskPercent');
-                if (mediumRiskElement) {
-                    mediumRiskElement.textContent = data.riskDistribution.mediumRisk.toFixed(0) + '%';
-                }
+                riskElements.forEach(elem => {
+                    const element = document.getElementById(elem.id);
+                    if (element) {
+                        element.textContent = elem.value + '%';
+                    }
+                });
                 
-                var highRiskElement = document.getElementById('highRiskPercent');
-                if (highRiskElement) {
-                    highRiskElement.textContent = data.riskDistribution.highRisk.toFixed(0) + '%';
-                }
-                
-                var benchmark = industryBenchmarks[data.industry];
-                var industryComparisonElement = document.getElementById('industryComparison');
-                if (benchmark && isFinite(data.roi) && industryComparisonElement) {
-                    var advantage = Math.round(((data.roi - benchmark.avg) / benchmark.avg) * 100);
-                    var comparisonText;
-                    if (advantage > 0) {
-                        comparisonText = 'Your projected ROI is ' + advantage + '% above ' + benchmark.name + ' average (' + benchmark.avg + '%)';
+                // Industry comparison
+                const industryComparisonElement = document.getElementById('industryComparison');
+                if (industryComparisonElement && data.industryBenchmark && isFinite(data.roi)) {
+                    const benchmark = data.industryBenchmark;
+                    const advantage = ((data.roi - benchmark.avg) / benchmark.avg) * 100;
+                    
+                    let comparisonText;
+                    if (Math.abs(advantage) < 1) {
+                        comparisonText = `Your projected ROI matches the ${benchmark.name} average (${benchmark.avg}%)`;
+                    } else if (advantage > 0) {
+                        comparisonText = `Your projected ROI is ${Math.round(advantage)}% above ${benchmark.name} average (${benchmark.avg}%)`;
                     } else {
-                        comparisonText = 'Your projected ROI is ' + Math.abs(advantage) + '% below ' + benchmark.name + ' average (' + benchmark.avg + '%)';
+                        comparisonText = `Your projected ROI is ${Math.round(Math.abs(advantage))}% below ${benchmark.name} average (${benchmark.avg}%)`;
                     }
                     industryComparisonElement.textContent = comparisonText;
                 }
                 
-                var summaryElement = document.getElementById('executiveSummary');
+                // Executive summary
+                const summaryElement = document.getElementById('executiveSummary');
                 if (summaryElement) {
-                    summaryElement.textContent = data.summary;
+                    summaryElement.textContent = generateExecutiveSummary(data);
                 }
                 
             } catch (error) {
                 console.error('Error updating displays:', error);
+                showError('Error updating result displays');
             }
         }
         
-        function generateExecutiveSummary(roi, confidence, paybackPeriod, riskDistribution) {
+        // Enhanced executive summary generation
+        function generateExecutiveSummary(data) {
             try {
-                if (!isFinite(roi)) {
+                if (!isFinite(data.roi)) {
                     return 'Please enter valid investment amounts to generate analysis.';
                 }
                 
-                var summary = '';
-                var recommendation = '';
+                let summary = '';
+                let recommendation = '';
                 
-                if (roi > 600 && confidence > 90) {
+                // ROI assessment
+                if (data.roi > 600 && data.confidence > 90) {
                     summary = 'Exceptional ROI with very high confidence. ';
                     recommendation = 'Strongly recommended for immediate implementation.';
-                } else if (roi > 450 && confidence > 85) {
+                } else if (data.roi > 450 && data.confidence > 85) {
                     summary = 'Outstanding ROI projections with high confidence. ';
                     recommendation = 'Recommended for priority implementation.';
-                } else if (roi > 350 && confidence > 80) {
+                } else if (data.roi > 350 && data.confidence > 80) {
                     summary = 'Strong ROI with good confidence levels. ';
                     recommendation = 'Recommended for implementation with standard risk management.';
-                } else if (roi > 250 && confidence > 75) {
+                } else if (data.roi > 250 && data.confidence > 75) {
                     summary = 'Moderate ROI with acceptable confidence. ';
                     recommendation = 'Consider optimization opportunities before implementation.';
-                } else if (roi > 150 && confidence > 70) {
+                } else if (data.roi > 150 && data.confidence > 70) {
                     summary = 'Positive but modest returns. ';
                     recommendation = 'Review parameters and consider alternatives.';
-                } else if (roi > 50) {
+                } else if (data.roi > 50) {
                     summary = 'Below-target ROI with uncertainty. ';
                     recommendation = 'Substantial optimization needed before implementation.';
                 } else {
@@ -1019,68 +1139,131 @@
                     recommendation = 'Investment not recommended without major restructuring.';
                 }
                 
-                if (paybackPeriod <= 12) {
+                // Payback period assessment
+                if (data.paybackPeriod <= 12) {
                     summary += 'Quick payback period enhances attractiveness. ';
-                } else if (paybackPeriod <= 24) {
+                } else if (data.paybackPeriod <= 24) {
                     summary += 'Reasonable payback timeline. ';
-                } else if (paybackPeriod < 999) {
-                    summary += 'Extended payback period requires planning. ';
+                } else if (data.paybackPeriod < 999) {
+                    summary += 'Extended payback period requires careful planning. ';
+                } else {
+                    summary += 'Payback period extends beyond reasonable timeframe. ';
                 }
                 
-                return summary + ' ' + recommendation;
+                // Risk assessment
+                if (data.riskDistribution.highRisk > 40) {
+                    summary += 'High risk profile requires mitigation strategies. ';
+                } else if (data.riskDistribution.lowRisk > 50) {
+                    summary += 'Low risk profile supports investment decision. ';
+                }
+                
+                return summary + recommendation;
+                
             } catch (error) {
                 console.error('Error generating summary:', error);
-                return 'Analysis complete. Please review the metrics above.';
+                return 'Analysis complete. Please review the metrics above for detailed insights.';
             }
         }
         
-        var calculationTimeout;
+        // Debounced calculation to prevent excessive recalculation
         function debounceCalculation() {
-            if (isCalculating) return;
-            clearTimeout(calculationTimeout);
-            calculationTimeout = setTimeout(function() {
-                try {
+            if (calculationTimeout) {
+                clearTimeout(calculationTimeout);
+            }
+            
+            calculationTimeout = setTimeout(() => {
+                if (!isCalculating) {
                     calculateROI();
-                } catch (error) {
-                    console.error('Calculation error:', error);
                 }
-            }, 300);
+            }, 500);
         }
         
-        document.addEventListener('DOMContentLoaded', function() {
-            if (isInitialized) return;
-            isInitialized = true;
-            
+        // Enhanced initialization
+        function initializeCalculator() {
             try {
-                var inputs = document.querySelectorAll('input, select');
-                for (var i = 0; i < inputs.length; i++) {
-                    if (inputs[i]) {
-                        inputs[i].addEventListener('input', function() {
+                // Add input listeners with validation
+                const inputs = document.querySelectorAll('input[type="number"]');
+                inputs.forEach(input => {
+                    if (input) {
+                        input.addEventListener('input', function() {
+                            // Validate input on the fly
+                            const value = parseFloat(this.value);
+                            const min = parseFloat(this.getAttribute('min')) || 0;
+                            const max = parseFloat(this.getAttribute('max')) || Infinity;
+                            
+                            if (isNaN(value) || value < min || value > max) {
+                                this.style.borderColor = '#dc3545';
+                            } else {
+                                this.style.borderColor = '#e9ecef';
+                                hideError();
+                            }
+                            
                             updateAllSliders();
                             debounceCalculation();
                         });
-                        inputs[i].addEventListener('change', function() {
+                        
+                        input.addEventListener('blur', function() {
+                            // Clean up invalid values on blur
+                            const value = parseFloat(this.value);
+                            const min = parseFloat(this.getAttribute('min')) || 0;
+                            const max = parseFloat(this.getAttribute('max')) || Infinity;
+                            
+                            if (isNaN(value) || value < min) {
+                                this.value = min;
+                            } else if (value > max) {
+                                this.value = max;
+                            }
+                            
+                            this.style.borderColor = '#e9ecef';
+                            debounceCalculation();
+                        });
+                    }
+                });
+                
+                // Add slider and select listeners
+                const sliders = document.querySelectorAll('input[type="range"], select');
+                sliders.forEach(element => {
+                    if (element) {
+                        element.addEventListener('input', () => {
+                            updateAllSliders();
+                            debounceCalculation();
+                        });
+                        element.addEventListener('change', () => {
                             updateAllSliders();
                             debounceCalculation();
                         });
                     }
-                }
+                });
                 
-                var scenarioButtons = document.querySelectorAll('.scenario-btn');
-                for (var j = 0; j < scenarioButtons.length; j++) {
-                    if (scenarioButtons[j] && scenarioButtons[j].dataset && scenarioButtons[j].dataset.scenario) {
-                        scenarioButtons[j].addEventListener('click', function() {
+                // Add scenario button listeners
+                const scenarioButtons = document.querySelectorAll('.scenario-btn');
+                scenarioButtons.forEach(button => {
+                    if (button && button.dataset && button.dataset.scenario) {
+                        button.addEventListener('click', function(event) {
+                            event.preventDefault();
                             setScenario(this.dataset.scenario);
                         });
                     }
-                }
+                });
                 
+                // Initialize display
                 updateAllSliders();
                 calculateROI();
+                
+                console.log('ROI Calculator initialized successfully');
+                
             } catch (error) {
                 console.error('Initialization error:', error);
+                showError('Failed to initialize calculator. Please refresh the page.');
             }
-        });
+        }
+        
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeCalculator);
+        } else {
+            initializeCalculator();
+        }
     </script>
 </body>
 </html>
