@@ -79,7 +79,11 @@
                 
                 const exportBtn = document.getElementById('exportPdfBtn');
                 if (exportBtn) {
-                    exportBtn.addEventListener('click', exportToPDF);
+                    exportBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        console.log('PDF Export clicked');
+                        exportToPDF();
+                    });
                     exportBtn.addEventListener('mouseenter', function() {
                         this.style.transform = 'translateY(-2px)';
                         this.style.boxShadow = '0 5px 15px rgba(40, 167, 69, 0.4)';
@@ -92,7 +96,11 @@
                 
                 const compareBtn = document.getElementById('compareBtn');
                 if (compareBtn) {
-                    compareBtn.addEventListener('click', toggleComparisonTable);
+                    compareBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        console.log('Compare Scenarios clicked');
+                        toggleComparisonTable();
+                    });
                     compareBtn.addEventListener('mouseenter', function() {
                         this.style.transform = 'translateY(-2px)';
                         this.style.boxShadow = '0 5px 15px rgba(0, 123, 255, 0.4)';
@@ -105,7 +113,11 @@
                 
                 const saveBtn = document.getElementById('saveBtn');
                 if (saveBtn) {
-                    saveBtn.addEventListener('click', saveAnalysis);
+                    saveBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        console.log('Save Analysis clicked');
+                        saveAnalysis();
+                    });
                     saveBtn.addEventListener('mouseenter', function() {
                         this.style.transform = 'translateY(-2px)';
                         this.style.boxShadow = '0 5px 15px rgba(111, 66, 193, 0.4)';
@@ -131,7 +143,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced ROI Calculator</title>
+    <title>Advanced ROI Calculator Pro</title>
     <style>
         * {
             margin: 0;
@@ -613,8 +625,8 @@
         <div class="header">
             <div class="version">v2.3 Pro</div>
             <h1>Advanced ROI Calculator</h1>
-            <p>Enterprise AI Investment Analysis with Real Monte Carlo Simulation</p>
-            <p style="font-size: 0.9em; opacity: 0.8;">Based on 10,000+ real enterprise implementations</p>
+            <p>Enterprise AI Investment Analysis with Monte Carlo Simulation</p>
+            <p style="font-size: 0.9em; opacity: 0.8;">Professional-grade ROI analysis tool</p>
             
             <!-- Premium Branding Section -->
             <div style="position: absolute; top: 70px; right: 30px; text-align: right;">
@@ -738,13 +750,13 @@
                 
                 <!-- Premium Action Buttons -->
                 <div style="display: flex; gap: 10px; margin-bottom: 25px;">
-                    <button id="exportPdfBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
+                    <button id="exportPdfBtn" class="premium-button" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
                         📄 Export PDF Report
                     </button>
-                    <button id="compareBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #007bff, #0056b3); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
+                    <button id="compareBtn" class="premium-button" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #007bff, #0056b3); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
                         📊 Compare Scenarios
                     </button>
-                    <button id="saveBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #6f42c1, #5a32a3); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
+                    <button id="saveBtn" class="premium-button" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #6f42c1, #5a32a3); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
                         💾 Save Analysis
                     </button>
                 </div>
@@ -1000,50 +1012,90 @@
         
         // Premium Features: PDF Export
         function exportToPDF() {
-            // Show comparison table for PDF
-            const comparisonTable = document.getElementById('comparisonTable');
-            if (comparisonTable) {
-                comparisonTable.style.display = 'block';
-                generateComparisonTable();
-            }
-            
-            // Add company info to header for PDF
-            const companyName = document.getElementById('companyName')?.value;
-            if (companyName) {
-                document.title = `ROI Analysis - ${companyName}`;
-            }
-            
-            // Trigger print dialog (saves as PDF in most browsers)
-            setTimeout(() => {
-                window.print();
-                
-                // Hide comparison table again after print
-                setTimeout(() => {
-                    if (comparisonTable && !document.getElementById('compareBtn').classList.contains('active')) {
-                        comparisonTable.style.display = 'none';
+            try {
+                // Show comparison table for PDF
+                const comparisonTable = document.getElementById('comparisonTable');
+                if (comparisonTable) {
+                    const wasHidden = comparisonTable.style.display === 'none';
+                    comparisonTable.style.display = 'block';
+                    generateComparisonTable();
+                    
+                    // Add company info to document title for PDF
+                    const companyName = document.getElementById('companyName')?.value;
+                    const originalTitle = document.title;
+                    if (companyName) {
+                        document.title = `ROI Analysis - ${companyName}`;
                     }
-                }, 1000);
-            }, 500);
+                    
+                    // Small delay to ensure content is rendered
+                    setTimeout(() => {
+                        window.print();
+                        
+                        // Restore original state
+                        setTimeout(() => {
+                            document.title = originalTitle;
+                            if (wasHidden) {
+                                comparisonTable.style.display = 'none';
+                            }
+                        }, 1000);
+                    }, 300);
+                } else {
+                    // Fallback if comparison table not found
+                    window.print();
+                }
+                
+                // Show success feedback
+                const exportBtn = document.getElementById('exportPdfBtn');
+                if (exportBtn) {
+                    const originalText = exportBtn.innerHTML;
+                    exportBtn.innerHTML = '✅ Ready to Print!';
+                    exportBtn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+                    
+                    setTimeout(() => {
+                        exportBtn.innerHTML = originalText;
+                        exportBtn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+                    }, 3000);
+                }
+                
+            } catch (error) {
+                console.error('PDF Export Error:', error);
+                showError('PDF export failed. Please try again.');
+            }
         }
         
         // Premium Features: Scenario Comparison
         function toggleComparisonTable() {
-            const table = document.getElementById('comparisonTable');
-            const button = document.getElementById('compareBtn');
-            
-            if (!table || !button) return;
-            
-            if (table.style.display === 'none' || !table.style.display) {
-                generateComparisonTable();
-                table.style.display = 'block';
-                button.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
-                button.textContent = '❌ Hide Comparison';
-                button.classList.add('active');
-            } else {
-                table.style.display = 'none';
-                button.style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
-                button.textContent = '📊 Compare Scenarios';
-                button.classList.remove('active');
+            try {
+                const table = document.getElementById('comparisonTable');
+                const button = document.getElementById('compareBtn');
+                
+                if (!table || !button) {
+                    showError('Comparison feature not available');
+                    return;
+                }
+                
+                const isHidden = table.style.display === 'none' || !table.style.display;
+                
+                if (isHidden) {
+                    // Show comparison table
+                    generateComparisonTable();
+                    table.style.display = 'block';
+                    table.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    
+                    button.innerHTML = '❌ Hide Comparison';
+                    button.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
+                    button.classList.add('active');
+                } else {
+                    // Hide comparison table
+                    table.style.display = 'none';
+                    
+                    button.innerHTML = '📊 Compare Scenarios';
+                    button.style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
+                    button.classList.remove('active');
+                }
+            } catch (error) {
+                console.error('Comparison Toggle Error:', error);
+                showError('Failed to toggle comparison view');
             }
         }
         
@@ -1212,63 +1264,100 @@
         // Premium Features: Save/Load Analysis
         function saveAnalysis() {
             try {
+                // Collect all current data
                 const analysisData = {
                     timestamp: new Date().toISOString(),
                     companyName: document.getElementById('companyName')?.value || '',
                     inputs: {
-                        techInvestment: document.getElementById('techInvestment')?.value,
-                        implementation: document.getElementById('implementation')?.value,
-                        training: document.getElementById('training')?.value,
-                        maintenance: document.getElementById('maintenance')?.value,
-                        adoptionRate: document.getElementById('adoptionRate')?.value,
-                        timeline: document.getElementById('timeline')?.value,
-                        performance: document.getElementById('performance')?.value,
-                        industry: document.getElementById('industry')?.value,
-                        companySize: document.getElementById('companySize')?.value,
-                        useCase: document.getElementById('useCase')?.value
+                        techInvestment: document.getElementById('techInvestment')?.value || '0',
+                        implementation: document.getElementById('implementation')?.value || '0',
+                        training: document.getElementById('training')?.value || '0',
+                        maintenance: document.getElementById('maintenance')?.value || '0',
+                        adoptionRate: document.getElementById('adoptionRate')?.value || '80',
+                        timeline: document.getElementById('timeline')?.value || '9',
+                        performance: document.getElementById('performance')?.value || '92',
+                        industry: document.getElementById('industry')?.value || 'financial',
+                        companySize: document.getElementById('companySize')?.value || 'medium',
+                        useCase: document.getElementById('useCase')?.value || 'analytics'
                     },
                     scenario: currentScenario,
-                    results: scenarioResults[currentScenario] || {}
+                    results: {
+                        roi: document.getElementById('roiValue')?.textContent || 'N/A',
+                        payback: document.getElementById('paybackPeriod')?.textContent || 'N/A',
+                        npv: document.getElementById('npvValue')?.textContent || 'N/A',
+                        benefits: document.getElementById('totalBenefits')?.textContent || 'N/A',
+                        costs: document.getElementById('totalCosts')?.textContent || 'N/A'
+                    }
                 };
                 
-                // Create downloadable JSON file
+                // Create filename with timestamp
+                const now = new Date();
+                const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+                const companyPart = analysisData.companyName ? `_${analysisData.companyName.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+                const filename = `ROI_Analysis${companyPart}_${dateStr}_${timeStr}.json`;
+                
+                // Create downloadable file
                 const dataStr = JSON.stringify(analysisData, null, 2);
                 const dataBlob = new Blob([dataStr], { type: 'application/json' });
                 
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(dataBlob);
-                link.download = `ROI_Analysis_${analysisData.companyName || 'Company'}_${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                // Create download link
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(dataBlob);
+                downloadLink.download = filename;
+                downloadLink.style.display = 'none';
                 
-                // Also save to localStorage as backup
-                const savedAnalyses = JSON.parse(localStorage.getItem('roiAnalyses') || '[]');
-                savedAnalyses.unshift(analysisData);
+                // Trigger download
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
                 
-                // Keep only last 5 analyses
-                if (savedAnalyses.length > 5) {
-                    savedAnalyses.splice(5);
+                // Clean up blob URL
+                setTimeout(() => {
+                    URL.revokeObjectURL(downloadLink.href);
+                }, 1000);
+                
+                // Save to localStorage as backup (if available)
+                try {
+                    const savedAnalyses = JSON.parse(localStorage.getItem('roiAnalyses') || '[]');
+                    savedAnalyses.unshift(analysisData);
+                    
+                    // Keep only last 5 analyses to avoid storage bloat
+                    if (savedAnalyses.length > 5) {
+                        savedAnalyses.splice(5);
+                    }
+                    
+                    localStorage.setItem('roiAnalyses', JSON.stringify(savedAnalyses));
+                } catch (storageError) {
+                    console.warn('localStorage not available:', storageError);
+                    // Continue without localStorage - download still works
                 }
                 
-                localStorage.setItem('roiAnalyses', JSON.stringify(savedAnalyses));
-                
-                // Show success message
+                // Show success feedback
                 const saveBtn = document.getElementById('saveBtn');
                 if (saveBtn) {
-                    const originalText = saveBtn.textContent;
-                    saveBtn.textContent = '✅ Saved!';
+                    const originalContent = saveBtn.innerHTML;
+                    saveBtn.innerHTML = '✅ Downloaded!';
                     saveBtn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
                     
                     setTimeout(() => {
-                        saveBtn.textContent = originalText;
+                        saveBtn.innerHTML = originalContent;
                         saveBtn.style.background = 'linear-gradient(135deg, #6f42c1, #5a32a3)';
-                    }, 2000);
+                    }, 3000);
                 }
                 
+                console.log('Analysis saved successfully:', filename);
+                
             } catch (error) {
-                console.error('Error saving analysis:', error);
-                showError('Failed to save analysis');
+                console.error('Save Analysis Error:', error);
+                showError('Failed to save analysis. Please check your browser settings and try again.');
+                
+                // Reset button on error
+                const saveBtn = document.getElementById('saveBtn');
+                if (saveBtn) {
+                    saveBtn.innerHTML = '💾 Save Analysis';
+                    saveBtn.style.background = 'linear-gradient(135deg, #6f42c1, #5a32a3)';
+                }
             }
         }
         
