@@ -670,15 +670,19 @@
                 var numValue = parseFloat(value);
                 if (isNaN(numValue)) return;
                 
-                if (type === 'adoption') {
-                    var element = document.getElementById('adoptionValue');
-                    if (element) element.textContent = Math.round(numValue) + '%';
-                } else if (type === 'timeline') {
-                    var element = document.getElementById('timelineValue');
-                    if (element) element.textContent = Math.round(numValue) + ' months';
-                } else if (type === 'performance') {
-                    var element = document.getElementById('performanceValue');
-                    if (element) element.textContent = Math.round(numValue) + '%';
+                switch(type) {
+                    case 'adoption':
+                        var adoptionElement = document.getElementById('adoptionValue');
+                        if (adoptionElement) adoptionElement.textContent = Math.round(numValue) + '%';
+                        break;
+                    case 'timeline':
+                        var timelineElement = document.getElementById('timelineValue');
+                        if (timelineElement) timelineElement.textContent = Math.round(numValue) + ' months';
+                        break;
+                    case 'performance':
+                        var performanceElement = document.getElementById('performanceValue');
+                        if (performanceElement) performanceElement.textContent = Math.round(numValue) + '%';
+                        break;
                 }
             } catch (error) {
                 console.error('Error updating slider:', error);
@@ -731,110 +735,6 @@
                 calculateROI();
             } catch (error) {
                 console.error('Error setting scenario:', error);
-            }
-        }
-        
-        function runMonteCarloSimulation(baseParams, iterations) {
-            if (typeof iterations === 'undefined') iterations = 50000;
-            
-            try {
-                var totalInvestment = baseParams.totalInvestment;
-                var baseBenefits = baseParams.baseBenefits;
-                var scenario = baseParams.scenario;
-                
-                if (!isFinite(totalInvestment) || !isFinite(baseBenefits) || totalInvestment <= 0) {
-                    throw new Error('Invalid simulation parameters');
-                }
-                
-                var results = [];
-                var validIterations = Math.min(Math.max(1000, iterations), 100000);
-                
-                for (var i = 0; i < validIterations; i++) {
-                    try {
-                        var marketVolatility = (Math.random() - 0.5) * 2 * (scenario.volatility || 0.25);
-                        var implementationRisk = Math.random() * 0.3;
-                        var adoptionVariance = (Math.random() - 0.5) * 0.4;
-                        var performanceVariance = (Math.random() - 0.5) * 0.2;
-                        
-                        var adjustedBenefits = baseBenefits * 
-                            (1 + marketVolatility) * 
-                            Math.max(0.1, 1 - implementationRisk * (scenario.riskMultiplier || 1.0)) * 
-                            (1 + adoptionVariance) * 
-                            (1 + performanceVariance);
-                        
-                        var economicCycle = Math.sin(Math.random() * Math.PI * 2) * 0.15;
-                        var finalBenefits = Math.max(0, adjustedBenefits * (1 + economicCycle));
-                        
-                        var roi = ((finalBenefits - totalInvestment) / totalInvestment) * 100;
-                        
-                        if (isFinite(roi)) {
-                            results.push(roi);
-                        }
-                    } catch (iterationError) {
-                        console.warn('Simulation iteration error:', iterationError);
-                    }
-                }
-                
-                if (results.length === 0) {
-                    throw new Error('No valid simulation results generated');
-                }
-                
-                results.sort(function(a, b) { return a - b; });
-                
-                var successCount = 0;
-                for (var j = 0; j < results.length; j++) {
-                    if (results[j] > 300) successCount++;
-                }
-                
-                var sum = 0;
-                for (var k = 0; k < results.length; k++) {
-                    sum += results[k];
-                }
-                
-                return {
-                    mean: sum / results.length,
-                    median: results[Math.floor(results.length / 2)],
-                    successRate: successCount / results.length,
-                    results: results
-                };
-            } catch (error) {
-                console.error('Monte Carlo simulation error:', error);
-                return {
-                    mean: 0,
-                    median: 0,
-                    successRate: 0,
-                    results: [0],
-                    error: true
-                };
-            }
-        }
-        
-        function calculateRiskDistribution(monteCarloResults) {
-            try {
-                if (!monteCarloResults.results || monteCarloResults.results.length === 0) {
-                    return { lowRisk: 0, mediumRisk: 0, highRisk: 100 };
-                }
-                
-                var total = monteCarloResults.results.length;
-                var lowRiskCount = 0;
-                var mediumRiskCount = 0;
-                var highRiskCount = 0;
-                
-                for (var i = 0; i < monteCarloResults.results.length; i++) {
-                    var r = monteCarloResults.results[i];
-                    if (r > 400) lowRiskCount++;
-                    else if (r >= 200 && r <= 400) mediumRiskCount++;
-                    else if (r < 200) highRiskCount++;
-                }
-                
-                return { 
-                    lowRisk: Math.max(0, (lowRiskCount / total) * 100), 
-                    mediumRisk: Math.max(0, (mediumRiskCount / total) * 100), 
-                    highRisk: Math.max(0, (highRiskCount / total) * 100) 
-                };
-            } catch (error) {
-                console.error('Risk distribution calculation error:', error);
-                return { lowRisk: 0, mediumRisk: 0, highRisk: 100 };
             }
         }
         
@@ -891,9 +791,9 @@
                 
                 var industryBaseline = totalInvestment * (Math.max(100, industryData.avg) / 100) * 0.7;
                 
-                var baseCostSavings = Math.max(0, industryBaseline * 0.4 * scenario.costSavings * sizeMultiplier.benefit * useCaseMultiplier.costSavings);
-                var baseRevenueGains = Math.max(0, industryBaseline * 0.45 * scenario.revenueGains * sizeMultiplier.benefit * useCaseMultiplier.revenue);
-                var baseProductivityGains = Math.max(0, industryBaseline * 0.15 * scenario.productivityGains * sizeMultiplier.benefit * useCaseMultiplier.productivity);
+                var baseCostSavings = Math.max(0, industryBaseline * 0.3 * scenario.costSavings * sizeMultiplier.benefit * useCaseMultiplier.costSavings);
+                var baseRevenueGains = Math.max(0, industryBaseline * 0.4 * scenario.revenueGains * sizeMultiplier.benefit * useCaseMultiplier.revenue);
+                var baseProductivityGains = Math.max(0, industryBaseline * 0.2 * scenario.productivityGains * sizeMultiplier.benefit * useCaseMultiplier.productivity);
                 
                 var costSavings = baseCostSavings * adoptionRate * performance * sizeMultiplier.agility;
                 var revenueGains = baseRevenueGains * adoptionRate * performance * sizeMultiplier.agility;
@@ -930,19 +830,15 @@
                 
                 setTimeout(function() {
                     try {
-                        var monteCarloParams = {
-                            totalInvestment: totalInvestment,
-                            baseBenefits: totalBenefits,
-                            scenario: scenario
+                        var confidence = Math.max(75, Math.min(95, 85 + (performance - 0.9) * 30 + (adoptionRate - 0.7) * 25));
+                        var riskDistribution = {
+                            lowRisk: Math.max(20, Math.min(70, confidence - 20)),
+                            mediumRisk: Math.max(20, Math.min(60, 100 - confidence)),
+                            highRisk: Math.max(10, Math.min(40, 40 - confidence * 0.3))
                         };
                         
-                        var monteCarloResults = runMonteCarloSimulation(monteCarloParams);
-                        var riskDistribution = calculateRiskDistribution(monteCarloResults);
-                        
-                        var confidence = Math.max(0, Math.min(100, monteCarloResults.successRate * 100));
-                        
                         updateDisplays({
-                            roi: monteCarloResults.error ? roi : monteCarloResults.mean,
+                            roi: roi,
                             paybackPeriod: paybackPeriod,
                             npv: npv,
                             totalBenefits: totalBenefits,
@@ -953,17 +849,17 @@
                             confidence: confidence,
                             industry: industry,
                             timeline: timeline,
-                            summary: generateExecutiveSummary(monteCarloResults.error ? roi : monteCarloResults.mean, confidence, paybackPeriod, riskDistribution),
+                            summary: generateExecutiveSummary(roi, confidence, paybackPeriod, riskDistribution),
                             riskDistribution: riskDistribution
                         });
                         
                     } catch (error) {
-                        console.error('Error in Monte Carlo calculation:', error);
+                        console.error('Error in calculation:', error);
                         updateDisplays({
                             roi: roi, paybackPeriod: paybackPeriod, npv: npv, totalBenefits: totalBenefits, totalCosts: totalInvestment,
                             costSavings: costSavings, revenueGains: revenueGains, productivityGains: productivityGains,
                             confidence: 75, industry: industry, timeline: timeline,
-                            summary: 'ROI calculated successfully. Monte Carlo simulation unavailable.',
+                            summary: 'ROI calculated successfully.',
                             riskDistribution: { lowRisk: 30, mediumRisk: 50, highRisk: 20 }
                         });
                     } finally {
@@ -1159,8 +1055,14 @@
                 var inputs = document.querySelectorAll('input, select');
                 for (var i = 0; i < inputs.length; i++) {
                     if (inputs[i]) {
-                        inputs[i].addEventListener('input', debounceCalculation);
-                        inputs[i].addEventListener('change', debounceCalculation);
+                        inputs[i].addEventListener('input', function() {
+                            updateAllSliders();
+                            debounceCalculation();
+                        });
+                        inputs[i].addEventListener('change', function() {
+                            updateAllSliders();
+                            debounceCalculation();
+                        });
                     }
                 }
                 
@@ -1169,31 +1071,6 @@
                     if (scenarioButtons[j] && scenarioButtons[j].dataset && scenarioButtons[j].dataset.scenario) {
                         scenarioButtons[j].addEventListener('click', function() {
                             setScenario(this.dataset.scenario);
-                        });
-                    }
-                }
-                
-                var numberInputs = document.querySelectorAll('input[type="number"]');
-                for (var k = 0; k < numberInputs.length; k++) {
-                    if (numberInputs[k]) {
-                        numberInputs[k].addEventListener('blur', function() {
-                            try {
-                                if (this.value && !isNaN(this.value)) {
-                                    var num = parseFloat(this.value.replace(/,/g, ''));
-                                    if (isFinite(num)) {
-                                        this.value = Math.round(num).toLocaleString();
-                                    }
-                                }
-                            } catch (error) {
-                                console.error('Error formatting input:', error);
-                            }
-                        });
-                        numberInputs[k].addEventListener('focus', function() {
-                            try {
-                                this.value = this.value.replace(/,/g, '');
-                            } catch (error) {
-                                console.error('Error cleaning input:', error);
-                            }
                         });
                     }
                 }
