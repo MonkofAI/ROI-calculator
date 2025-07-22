@@ -1,4 +1,132 @@
-<!DOCTYPE html>
+        // Enhanced initialization
+        function initializeCalculator() {
+            try {
+                // Add input listeners with validation
+                const inputs = document.querySelectorAll('input[type="number"]');
+                inputs.forEach(input => {
+                    if (input) {
+                        input.addEventListener('input', function() {
+                            // Validate input on the fly
+                            const value = parseFloat(this.value);
+                            const min = parseFloat(this.getAttribute('min')) || 0;
+                            const max = parseFloat(this.getAttribute('max')) || Infinity;
+                            
+                            if (isNaN(value) || value < min || value > max) {
+                                this.style.borderColor = '#dc3545';
+                            } else {
+                                this.style.borderColor = '#e9ecef';
+                                hideError();
+                            }
+                            
+                            updateAllSliders();
+                            debounceCalculation();
+                        });
+                        
+                        input.addEventListener('blur', function() {
+                            // Clean up invalid values on blur
+                            const value = parseFloat(this.value);
+                            const min = parseFloat(this.getAttribute('min')) || 0;
+                            const max = parseFloat(this.getAttribute('max')) || Infinity;
+                            
+                            if (isNaN(value) || value < min) {
+                                this.value = min;
+                            } else if (value > max) {
+                                this.value = max;
+                            }
+                            
+                            this.style.borderColor = '#e9ecef';
+                            debounceCalculation();
+                        });
+                    }
+                });
+                
+                // Add slider and select listeners
+                const sliders = document.querySelectorAll('input[type="range"], select');
+                sliders.forEach(element => {
+                    if (element) {
+                        element.addEventListener('input', () => {
+                            updateAllSliders();
+                            debounceCalculation();
+                        });
+                        element.addEventListener('change', () => {
+                            updateAllSliders();
+                            debounceCalculation();
+                        });
+                    }
+                });
+                
+                // Add scenario button listeners
+                const scenarioButtons = document.querySelectorAll('.scenario-btn');
+                scenarioButtons.forEach(button => {
+                    if (button && button.dataset && button.dataset.scenario) {
+                        button.addEventListener('click', function(event) {
+                            event.preventDefault();
+                            setScenario(this.dataset.scenario);
+                        });
+                    }
+                });
+                
+                // Premium Features: Add event listeners
+                const companyNameInput = document.getElementById('companyName');
+                if (companyNameInput) {
+                    companyNameInput.addEventListener('input', updateCompanyName);
+                }
+                
+                const logoUpload = document.getElementById('logoUpload');
+                if (logoUpload) {
+                    logoUpload.addEventListener('change', handleLogoUpload);
+                }
+                
+                const exportBtn = document.getElementById('exportPdfBtn');
+                if (exportBtn) {
+                    exportBtn.addEventListener('click', exportToPDF);
+                    exportBtn.addEventListener('mouseenter', function() {
+                        this.style.transform = 'translateY(-2px)';
+                        this.style.boxShadow = '0 5px 15px rgba(40, 167, 69, 0.4)';
+                    });
+                    exportBtn.addEventListener('mouseleave', function() {
+                        this.style.transform = 'translateY(0)';
+                        this.style.boxShadow = 'none';
+                    });
+                }
+                
+                const compareBtn = document.getElementById('compareBtn');
+                if (compareBtn) {
+                    compareBtn.addEventListener('click', toggleComparisonTable);
+                    compareBtn.addEventListener('mouseenter', function() {
+                        this.style.transform = 'translateY(-2px)';
+                        this.style.boxShadow = '0 5px 15px rgba(0, 123, 255, 0.4)';
+                    });
+                    compareBtn.addEventListener('mouseleave', function() {
+                        this.style.transform = 'translateY(0)';
+                        this.style.boxShadow = 'none';
+                    });
+                }
+                
+                const saveBtn = document.getElementById('saveBtn');
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', saveAnalysis);
+                    saveBtn.addEventListener('mouseenter', function() {
+                        this.style.transform = 'translateY(-2px)';
+                        this.style.boxShadow = '0 5px 15px rgba(111, 66, 193, 0.4)';
+                    });
+                    saveBtn.addEventListener('mouseleave', function() {
+                        this.style.transform = 'translateY(0)';
+                        this.style.boxShadow = 'none';
+                    });
+                }
+                
+                // Initialize display
+                updateAllSliders();
+                calculateROI();
+                
+                console.log('ROI Calculator Pro initialized successfully');
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Failed to initialize calculator. Please refresh the page.');
+            }
+        }<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -354,6 +482,38 @@
             display: none;
         }
         
+        .premium-button {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .premium-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .premium-button:active {
+            transform: translateY(0);
+        }
+        
+        .premium-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+        
+        .premium-button:active::after {
+            width: 200px;
+            height: 200px;
+        }
+        
         @media (max-width: 768px) {
             .calculator {
                 grid-template-columns: 1fr;
@@ -382,21 +542,106 @@
                 display: inline-block;
                 margin-top: 10px;
             }
+            
+            #companyLogo {
+                position: static !important;
+                text-align: center;
+                margin: 15px 0 !important;
+            }
+            
+            #companyNameDisplay {
+                text-align: center !important;
+                font-size: 1em !important;
+            }
+            
+            .header {
+                text-align: center !important;
+                position: relative;
+            }
+            
+            /* Mobile-friendly premium buttons */
+            .premium-button {
+                padding: 15px !important;
+                font-size: 0.85em !important;
+                margin-bottom: 10px;
+            }
+            
+            /* Comparison table mobile styling */
+            #comparisonTable table {
+                font-size: 0.8em;
+            }
+            
+            #comparisonTable th,
+            #comparisonTable td {
+                padding: 8px !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .calculator {
+                padding: 15px;
+            }
+            
+            .inputs-section,
+            .results-section {
+                padding: 20px;
+            }
+            
+            .result-value {
+                font-size: 2.5em !important;
+            }
+            
+            .metric-value {
+                font-size: 1.5em !important;
+            }
+            
+            /* Stack premium buttons vertically on very small screens */
+            .premium-button {
+                width: 100% !important;
+                margin-bottom: 8px !important;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="version">v2.2 Fixed</div>
+            <div class="version">v2.3 Pro</div>
             <h1>Advanced ROI Calculator</h1>
             <p>Enterprise AI Investment Analysis with Real Monte Carlo Simulation</p>
             <p style="font-size: 0.9em; opacity: 0.8;">Based on 10,000+ real enterprise implementations</p>
+            
+            <!-- Premium Branding Section -->
+            <div style="position: absolute; top: 70px; right: 30px; text-align: right;">
+                <div id="companyLogo" style="max-width: 120px; max-height: 60px; margin-bottom: 10px; display: none;">
+                    <img id="logoImage" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="Company Logo">
+                </div>
+                <div id="companyNameDisplay" style="font-size: 1.1em; font-weight: 600; opacity: 0.9;"></div>
+            </div>
         </div>
         
         <div class="calculator">
             <div class="inputs-section">
                 <h2 class="section-title">Investment Parameters</h2>
+                
+                <!-- Premium Branding Controls -->
+                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 2px solid #e9ecef;">
+                    <h4 style="margin-bottom: 15px; color: #333; font-size: 1.1em;">🏢 Company Branding</h4>
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label for="companyName">Company Name</label>
+                        <input type="text" id="companyName" placeholder="Enter your company name" style="margin-bottom: 10px;">
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label for="logoUpload">Company Logo</label>
+                        <input type="file" id="logoUpload" accept="image/*" style="padding: 8px;">
+                        <small style="color: #666; font-size: 0.8em;">Upload PNG, JPG, or SVG (max 2MB)</small>
+                    </div>
+                </div>
                 
                 <div class="error-message" id="errorMessage"></div>
                 
@@ -491,6 +736,19 @@
             <div class="results-section">
                 <h2 class="section-title">ROI Analysis Results</h2>
                 
+                <!-- Premium Action Buttons -->
+                <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+                    <button id="exportPdfBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
+                        📄 Export PDF Report
+                    </button>
+                    <button id="compareBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #007bff, #0056b3); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
+                        📊 Compare Scenarios
+                    </button>
+                    <button id="saveBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #6f42c1, #5a32a3); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;">
+                        💾 Save Analysis
+                    </button>
+                </div>
+                
                 <div class="result-card">
                     <div class="result-value" id="roiValue">547%</div>
                     <div class="result-label">3-Year ROI</div>
@@ -580,8 +838,67 @@
                         Recommended for immediate implementation.
                     </p>
                 </div>
+                
+                <!-- Scenario Comparison Table (Initially Hidden) -->
+                <div id="comparisonTable" style="display: none; margin-top: 25px; padding: 25px; background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 12px; border: 2px solid #e9ecef;">
+                    <h4 style="margin-bottom: 20px; color: #333; font-size: 1.2em;">📊 Scenario Comparison</h4>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                            <thead>
+                                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                    <th style="padding: 12px; text-align: left; border-radius: 8px 0 0 0;">Metric</th>
+                                    <th style="padding: 12px; text-align: center;">Conservative</th>
+                                    <th style="padding: 12px; text-align: center;">Expected</th>
+                                    <th style="padding: 12px; text-align: center; border-radius: 0 8px 0 0;">Optimistic</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparisonTableBody">
+                                <!-- Table content will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                        <p style="margin: 0; color: #1565c0; font-size: 0.9em; font-weight: 500;">
+                            💡 <strong>Recommendation:</strong> <span id="comparisonRecommendation">Expected scenario provides optimal balance of returns and risk.</span>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
+        
+        <!-- Hidden Print/PDF Styles -->
+        <style media="print" id="printStyles">
+            .calculator { grid-template-columns: 1fr !important; }
+            .inputs-section { display: none !important; }
+            .results-section { 
+                background: white !important; 
+                box-shadow: none !important; 
+                border: none !important; 
+                padding: 20px !important; 
+            }
+            body { 
+                background: white !important; 
+                padding: 0 !important; 
+                font-size: 12px !important; 
+            }
+            .container { 
+                box-shadow: none !important; 
+                border-radius: 0 !important; 
+            }
+            .header { 
+                background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%) !important; 
+                -webkit-print-color-adjust: exact !important; 
+                color-adjust: exact !important; 
+            }
+            .result-card { 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; 
+                -webkit-print-color-adjust: exact !important; 
+                color-adjust: exact !important; 
+            }
+            #comparisonTable { display: block !important; }
+            button { display: none !important; }
+            .scenario-buttons { display: none !important; }
+        </style>
     </div>
 
     <script>
@@ -647,6 +964,313 @@
         let currentScenario = 'expected';
         let isCalculating = false;
         let calculationTimeout = null;
+        let scenarioResults = {}; // Store results for comparison
+        
+        // Premium Features: Company branding
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                showError('Logo file size must be less than 2MB');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const logoImage = document.getElementById('logoImage');
+                const logoContainer = document.getElementById('companyLogo');
+                
+                if (logoImage && logoContainer) {
+                    logoImage.src = e.target.result;
+                    logoContainer.style.display = 'block';
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function updateCompanyName() {
+            const companyName = document.getElementById('companyName')?.value || '';
+            const display = document.getElementById('companyNameDisplay');
+            
+            if (display) {
+                display.textContent = companyName;
+            }
+        }
+        
+        // Premium Features: PDF Export
+        function exportToPDF() {
+            // Show comparison table for PDF
+            const comparisonTable = document.getElementById('comparisonTable');
+            if (comparisonTable) {
+                comparisonTable.style.display = 'block';
+                generateComparisonTable();
+            }
+            
+            // Add company info to header for PDF
+            const companyName = document.getElementById('companyName')?.value;
+            if (companyName) {
+                document.title = `ROI Analysis - ${companyName}`;
+            }
+            
+            // Trigger print dialog (saves as PDF in most browsers)
+            setTimeout(() => {
+                window.print();
+                
+                // Hide comparison table again after print
+                setTimeout(() => {
+                    if (comparisonTable && !document.getElementById('compareBtn').classList.contains('active')) {
+                        comparisonTable.style.display = 'none';
+                    }
+                }, 1000);
+            }, 500);
+        }
+        
+        // Premium Features: Scenario Comparison
+        function toggleComparisonTable() {
+            const table = document.getElementById('comparisonTable');
+            const button = document.getElementById('compareBtn');
+            
+            if (!table || !button) return;
+            
+            if (table.style.display === 'none' || !table.style.display) {
+                generateComparisonTable();
+                table.style.display = 'block';
+                button.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
+                button.textContent = '❌ Hide Comparison';
+                button.classList.add('active');
+            } else {
+                table.style.display = 'none';
+                button.style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
+                button.textContent = '📊 Compare Scenarios';
+                button.classList.remove('active');
+            }
+        }
+        
+        function generateComparisonTable() {
+            const tableBody = document.getElementById('comparisonTableBody');
+            if (!tableBody) return;
+            
+            // Calculate all three scenarios
+            const scenarios = ['conservative', 'expected', 'optimistic'];
+            const results = {};
+            
+            scenarios.forEach(scenario => {
+                results[scenario] = calculateScenarioResults(scenario);
+            });
+            
+            // Generate table rows
+            const metrics = [
+                { label: '3-Year ROI', key: 'roi', format: 'percentage' },
+                { label: 'Payback Period', key: 'paybackPeriod', format: 'months' },
+                { label: 'Net Present Value', key: 'npv', format: 'currency' },
+                { label: 'Total Benefits', key: 'totalBenefits', format: 'currency' },
+                { label: 'Total Investment', key: 'totalCosts', format: 'currency' },
+                { label: 'Success Confidence', key: 'confidence', format: 'percentage' },
+                { label: 'Risk Level', key: 'riskLevel', format: 'text' }
+            ];
+            
+            let tableHTML = '';
+            metrics.forEach((metric, index) => {
+                const rowColor = index % 2 === 0 ? '#f8f9fa' : '#ffffff';
+                tableHTML += `
+                    <tr style="background: ${rowColor};">
+                        <td style="padding: 12px; font-weight: 600; color: #333;">${metric.label}</td>
+                        <td style="padding: 12px; text-align: center;">${formatMetric(results.conservative[metric.key], metric.format)}</td>
+                        <td style="padding: 12px; text-align: center; background: #e8f5e8; font-weight: 600;">${formatMetric(results.expected[metric.key], metric.format)}</td>
+                        <td style="padding: 12px; text-align: center;">${formatMetric(results.optimistic[metric.key], metric.format)}</td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = tableHTML;
+            
+            // Update recommendation
+            const recommendation = document.getElementById('comparisonRecommendation');
+            if (recommendation) {
+                recommendation.textContent = generateComparisonRecommendation(results);
+            }
+        }
+        
+        function calculateScenarioResults(scenarioName) {
+            const scenario = scenarios[scenarioName];
+            if (!scenario) return {};
+            
+            // Get current inputs
+            const techInvestment = validateAndParseNumber(document.getElementById('techInvestment')?.value, 1000000, 1000, 100000000);
+            const implementation = validateAndParseNumber(document.getElementById('implementation')?.value, 0, 0, 50000000);
+            const training = validateAndParseNumber(document.getElementById('training')?.value, 0, 0, 10000000);
+            const maintenance = validateAndParseNumber(document.getElementById('maintenance')?.value, 0, 0, 10000000);
+            
+            const industry = document.getElementById('industry')?.value || 'financial';
+            const companySize = document.getElementById('companySize')?.value || 'medium';
+            const useCase = document.getElementById('useCase')?.value || 'analytics';
+            
+            // Use scenario-specific values
+            const adoptionRate = scenario.adoptionRate / 100;
+            const timeline = scenario.timeline;
+            const performance = scenario.performance / 100;
+            
+            // Calculate using same logic as main calculation
+            const sizeMultiplier = companySizeMultipliers[companySize];
+            const useCaseMultiplier = useCaseMultipliers[useCase];
+            const industryData = industryBenchmarks[industry];
+            
+            const initialInvestment = (techInvestment + implementation + training) * sizeMultiplier.cost;
+            const annualMaintenance = maintenance * sizeMultiplier.cost;
+            const totalInvestment = initialInvestment + (annualMaintenance * 3);
+            
+            const industryBaseline = totalInvestment * (industryData.avg / 100);
+            
+            const baseCostSavings = industryBaseline * 0.35 * scenario.costSavings * sizeMultiplier.benefit * useCaseMultiplier.costSavings;
+            const baseRevenueGains = industryBaseline * 0.45 * scenario.revenueGains * sizeMultiplier.benefit * useCaseMultiplier.revenue;
+            const baseProductivityGains = industryBaseline * 0.20 * scenario.productivityGains * sizeMultiplier.benefit * useCaseMultiplier.productivity;
+            
+            const costSavings = baseCostSavings * adoptionRate * performance * sizeMultiplier.agility;
+            const revenueGains = baseRevenueGains * adoptionRate * performance * sizeMultiplier.agility;
+            const productivityGains = baseProductivityGains * adoptionRate * performance * sizeMultiplier.agility;
+            
+            let timelineMultiplier = 1.0;
+            if (timeline <= 3) timelineMultiplier = 1.4 * sizeMultiplier.agility;
+            else if (timeline <= 6) timelineMultiplier = 1.25 * sizeMultiplier.agility;
+            else if (timeline <= 9) timelineMultiplier = 1.15 * sizeMultiplier.agility;
+            else if (timeline <= 12) timelineMultiplier = 1.0;
+            else if (timeline <= 18) timelineMultiplier = 0.9;
+            else if (timeline <= 24) timelineMultiplier = 0.8;
+            else timelineMultiplier = 0.7;
+            
+            const totalBenefits = Math.max(0, (costSavings + revenueGains + productivityGains) * timelineMultiplier / Math.max(0.5, sizeMultiplier.complexity));
+            
+            const netBenefits = totalBenefits - totalInvestment;
+            const roi = totalInvestment > 0 ? (netBenefits / totalInvestment) * 100 : 0;
+            
+            const monthlyBenefit = totalBenefits / 36;
+            const monthlyNetBenefit = monthlyBenefit - (annualMaintenance / 12);
+            const paybackPeriod = monthlyNetBenefit > 0 ? Math.ceil(initialInvestment / monthlyNetBenefit) : 999;
+            
+            const baseDiscountRate = 0.10;
+            const riskAdjustment = (scenario.riskMultiplier - 1) * 0.05 + (useCaseMultiplier.risk - 1) * 0.02;
+            const discountRate = Math.max(0.05, Math.min(0.25, baseDiscountRate + riskAdjustment));
+            
+            let npv = -initialInvestment;
+            const annualBenefit = totalBenefits / 3;
+            for (let year = 1; year <= 3; year++) {
+                const yearlyNetBenefit = Math.max(0, annualBenefit - annualMaintenance);
+                npv += yearlyNetBenefit / Math.pow(1 + discountRate, year);
+            }
+            
+            let confidence = 85;
+            confidence += (performance - 0.9) * 50;
+            confidence += (adoptionRate - 0.7) * 33;
+            confidence -= (timeline - 9) * 0.5;
+            confidence = Math.max(65, Math.min(98, confidence));
+            
+            const baseRisk = scenario.riskMultiplier * useCaseMultiplier.risk;
+            let riskLevel = 'Medium';
+            if (baseRisk < 0.8) riskLevel = 'Low';
+            else if (baseRisk > 1.2) riskLevel = 'High';
+            
+            return {
+                roi, paybackPeriod, npv, totalBenefits, totalCosts: totalInvestment,
+                costSavings, revenueGains, productivityGains, confidence, riskLevel
+            };
+        }
+        
+        function formatMetric(value, format) {
+            if (!isFinite(value) || isNaN(value)) return 'N/A';
+            
+            switch (format) {
+                case 'percentage':
+                    return Math.round(value) + '%';
+                case 'currency':
+                    return formatCurrency(value);
+                case 'months':
+                    return value < 999 ? value + ' months' : '∞';
+                case 'text':
+                    return value;
+                default:
+                    return value.toString();
+            }
+        }
+        
+        function generateComparisonRecommendation(results) {
+            const expected = results.expected;
+            const conservative = results.conservative;
+            const optimistic = results.optimistic;
+            
+            if (expected.roi > 400 && expected.confidence > 85) {
+                return "Expected scenario offers excellent returns with high confidence. Recommended approach.";
+            } else if (conservative.roi > 200 && conservative.confidence > 80) {
+                return "Conservative approach provides solid returns with lower risk. Good for risk-averse organizations.";
+            } else if (optimistic.roi > 500) {
+                return "Optimistic scenario shows high potential but requires strong execution. Consider if organization has high implementation capability.";
+            } else {
+                return "Review investment parameters and consider optimization opportunities before proceeding.";
+            }
+        }
+        
+        // Premium Features: Save/Load Analysis
+        function saveAnalysis() {
+            try {
+                const analysisData = {
+                    timestamp: new Date().toISOString(),
+                    companyName: document.getElementById('companyName')?.value || '',
+                    inputs: {
+                        techInvestment: document.getElementById('techInvestment')?.value,
+                        implementation: document.getElementById('implementation')?.value,
+                        training: document.getElementById('training')?.value,
+                        maintenance: document.getElementById('maintenance')?.value,
+                        adoptionRate: document.getElementById('adoptionRate')?.value,
+                        timeline: document.getElementById('timeline')?.value,
+                        performance: document.getElementById('performance')?.value,
+                        industry: document.getElementById('industry')?.value,
+                        companySize: document.getElementById('companySize')?.value,
+                        useCase: document.getElementById('useCase')?.value
+                    },
+                    scenario: currentScenario,
+                    results: scenarioResults[currentScenario] || {}
+                };
+                
+                // Create downloadable JSON file
+                const dataStr = JSON.stringify(analysisData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `ROI_Analysis_${analysisData.companyName || 'Company'}_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Also save to localStorage as backup
+                const savedAnalyses = JSON.parse(localStorage.getItem('roiAnalyses') || '[]');
+                savedAnalyses.unshift(analysisData);
+                
+                // Keep only last 5 analyses
+                if (savedAnalyses.length > 5) {
+                    savedAnalyses.splice(5);
+                }
+                
+                localStorage.setItem('roiAnalyses', JSON.stringify(savedAnalyses));
+                
+                // Show success message
+                const saveBtn = document.getElementById('saveBtn');
+                if (saveBtn) {
+                    const originalText = saveBtn.textContent;
+                    saveBtn.textContent = '✅ Saved!';
+                    saveBtn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+                    
+                    setTimeout(() => {
+                        saveBtn.textContent = originalText;
+                        saveBtn.style.background = 'linear-gradient(135deg, #6f42c1, #5a32a3)';
+                    }, 2000);
+                }
+                
+            } catch (error) {
+                console.error('Error saving analysis:', error);
+                showError('Failed to save analysis');
+            }
+        }
         
         // Improved input validation
         function validateAndParseNumber(value, defaultValue = 0, min = 0, max = Infinity) {
@@ -973,6 +1597,13 @@
                             timeline: timeline,
                             riskDistribution: riskDistribution
                         });
+                        
+                        // Store results for comparison feature
+                        scenarioResults[currentScenario] = {
+                            roi, paybackPeriod, npv, totalBenefits, totalCosts: totalInvestment,
+                            costSavings, revenueGains, productivityGains, confidence,
+                            riskLevel: baseRisk < 0.8 ? 'Low' : baseRisk > 1.2 ? 'High' : 'Medium'
+                        };
                         
                     } catch (displayError) {
                         console.error('Error updating displays:', displayError);
